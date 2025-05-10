@@ -1,28 +1,35 @@
 #import "../../InstagramHeaders.h"
 #import "../../Manager.h"
 
-// Bloquear o botão "Seguindo" com base no texto
+// Bloquear o texto "Seguindo" diretamente
 %hook IGProfileViewController
 - (void)viewDidLoad {
     %orig;
-    NSLog(@"[SCInsta] Checking for Following button");
+    NSLog(@"[SCInsta] Verificando se há o texto Seguindo...");
 
-    if ([SCIManager getPref:@"hide_trending_searches"]) {
-        // Percorrer todas as subviews do perfil
-        for (UIView *subview in self.view.subviews) {
-            // Verificar se é um botão
-            if ([subview isKindOfClass:[UIButton class]]) {
-                UIButton *button = (UIButton *)subview;
-                NSString *buttonText = button.titleLabel.text;
+    if ([SCIManager getPref:@"block_following_button"]) {
+        [self blockFollowingTextInSubviews:self.view];
+    }
+}
 
-                // Verificar se o texto é "Seguindo" ou "Following"
-                if ([buttonText containsString:@"Seguindo"] || [buttonText containsString:@"Following"]) {
-                    NSLog(@"[SCInsta] Found Following button. Blocking interaction...");
-                    // Remover qualquer ação do botão
-                    [button removeTarget:nil action:NULL forControlEvents:UIControlEventAllEvents];
-                    [button setUserInteractionEnabled:NO];
-                }
+// Função recursiva para buscar o texto "Seguindo" em qualquer subview
+- (void)blockFollowingTextInSubviews:(UIView *)view {
+    for (UIView *subview in view.subviews) {
+        if ([subview isKindOfClass:[UILabel class]]) {
+            UILabel *label = (UILabel *)subview;
+            NSString *text = label.text;
+
+            if ([text containsString:@"Seguindo"] || [text containsString:@"Following"]) {
+                NSLog(@"[SCInsta] Texto 'Seguindo' detectado e bloqueado.");
+                label.userInteractionEnabled = NO;
+                label.textColor = [UIColor grayColor]; // Mudando a cor para indicar bloqueio (opcional)
+                return;
             }
+        }
+
+        // Chamar recursivamente para subviews aninhadas
+        if (subview.subviews.count > 0) {
+            [self blockFollowingTextInSubviews:subview];
         }
     }
 }
