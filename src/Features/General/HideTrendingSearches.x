@@ -1,15 +1,28 @@
 #import "../../InstagramHeaders.h"
 #import "../../Manager.h"
 
-%hook IGDSSegmentedPillBarView
-- (void)didMoveToWindow {
+// Bloquear o botão "Seguindo" com base no texto
+%hook IGProfileViewController
+- (void)viewDidLoad {
     %orig;
+    NSLog(@"[SCInsta] Checking for Following button");
 
-    if ([[self delegate] isKindOfClass:%c(IGSearchTypeaheadNavigationHeaderView)]) {
-        if ([SCIManager getPref:@"hide_trending_searches"]) {
-            NSLog(@"[SCInsta] Hiding trending searches");
+    if ([SCIManager getPref:@"hide_trending_searches"]) {
+        // Percorrer todas as subviews do perfil
+        for (UIView *subview in self.view.subviews) {
+            // Verificar se é um botão
+            if ([subview isKindOfClass:[UIButton class]]) {
+                UIButton *button = (UIButton *)subview;
+                NSString *buttonText = button.titleLabel.text;
 
-            [self removeFromSuperview];
+                // Verificar se o texto é "Seguindo" ou "Following"
+                if ([buttonText containsString:@"Seguindo"] || [buttonText containsString:@"Following"]) {
+                    NSLog(@"[SCInsta] Found Following button. Blocking interaction...");
+                    // Remover qualquer ação do botão
+                    [button removeTarget:nil action:NULL forControlEvents:UIControlEventAllEvents];
+                    [button setUserInteractionEnabled:NO];
+                }
+            }
         }
     }
 }
