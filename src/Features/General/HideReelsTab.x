@@ -12,7 +12,7 @@
         NSLog(@"[SCInsta] Hiding reels tab");
 
         if ([tabButtons count] == 5) {
-            [tabButtons removeObjectAtIndex:4];
+            [tabButtons removeObjectAtIndex:5];
         }
 
         [self.subviews[4] setHidden:YES];
