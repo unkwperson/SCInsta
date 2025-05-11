@@ -1,21 +1,34 @@
-//  BlockFollowing.xm  (mesmo conteúdo anterior, mas corrigido)
+//  BlockFollowing.xm
+//  Bloqueia a lista “Seguindo” e loga eventos úteis
+//
+//  • Pref-key: hide_following_list (BOOL)
+//  • Logs:    [SCInsta-DBG][Tap] / [SCInsta-DBG][Present]
+//  • Build:   coloque em SCInsta.plist, compile em Debug.
 
-// 1) IMPORTS
 #import "../../InstagramHeaders.h"
 #import "../../Manager.h"
 #import <objc/runtime.h>
 #import <UIKit/UIKit.h>
 
-/* =====  FIX: Stub das classes só para o clang enxergar ===== */
-@interface IGUserListViewController : UIViewController @end
-@interface IGFollowListContainerController : UIViewController @end
-/* =========================================================== */
+/* ========= Stubs só para o clang conhecer as classes ========= */
+@interface IGUserListViewController            : UIViewController @end
+@interface IGFollowListContainerController     : UIViewController @end
+@interface IGProfileSimpleAvatarStatsCell      : UIView              // botão stats
+- (void)_followingButtonTapped:(id)sender;
+@end
+/* ============================================================= */
 
 /* ---------- Preferências ---------- */
-static inline BOOL BHShouldBlock(void)  { return [SCIManager getPref:@"hide_following_list"]; }
-static inline BOOL BHShouldLog(void)    { return YES; }
+static inline BOOL BHShouldBlock(void) {       // toggle do usuário
+    return [SCIManager getPref:@"hide_following_list"];
+}
+static inline BOOL BHShouldLog(void)   {       // sempre logar (mude se quiser toggle)
+    return YES;
+}
 
-/* 1) Logger de toques --------------------------------------------------- */
+/* ========================================================== *
+ * 1) Logger de Tap – mostra seletor exato que cada botão chama
+ * ========================================================== */
 %hook UIControl
 - (void)sendAction:(SEL)action to:(id)target forEvent:(UIEvent *)event
 {
@@ -32,7 +45,24 @@ static inline BOOL BHShouldLog(void)    { return YES; }
 }
 %end   // UIControl
 
-/* 2) Intercepta apresentações ------------------------------------------- */
+/* ========================================================== *
+ * 2) Hook específico — bloqueia o botão “Seguindo” detectado
+ * ========================================================== */
+%hook IGProfileSimpleAvatarStatsCell
+- (void)_followingButtonTapped:(id)sender {
+    if (BHShouldBlock()) {
+        NSLog(@"[SCInsta] Bloqueado _followingButtonTapped:");
+        return;                            // não deixa abrir nada
+    }
+    %orig;
+}
+%end   // IGProfileSimpleAvatarStatsCell
+
+/* ========================================================== *
+ * 3) Intercepta apresentações de VCs
+ *    • Loga sempre
+ *    • Cancela se pref ON e nome contém Follow/UserList
+ * ========================================================== */
 %hook UIViewController
 - (void)presentViewController:(UIViewController *)vc
                      animated:(BOOL)animated
@@ -54,7 +84,9 @@ static inline BOOL BHShouldLog(void)    { return YES; }
 }
 %end   // UIViewController
 
-/* 3) Hooks de segurança (caso escape) ----------------------------------- */
+/* ========================================================== *
+ * 4) Rede de segurança: se escapar, fecha imediatamente
+ * ========================================================== */
 %hook IGUserListViewController
 - (void)viewDidAppear:(BOOL)animated {
     if (BHShouldBlock()) {
@@ -77,5 +109,7 @@ static inline BOOL BHShouldLog(void)    { return YES; }
 }
 %end
 
-/* 4) Inicialização ------------------------------------------------------ */
+/* ========================================================== *
+ * 5) Inicialização
+ * ========================================================== */
 %ctor { %init; }
