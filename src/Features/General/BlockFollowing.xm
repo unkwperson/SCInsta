@@ -1,50 +1,44 @@
+//  src/Features/General/BlockFollowing.xm
+//  Bloqueia a apresentação da tela “Seguindo” / “Following”
+
 #import "../../InstagramHeaders.h"
 #import "../../Manager.h"
 
-/* Predeclara só os métodos que vamos hookar */
-@interface IGProfileViewController (BHHideFollowing)
-- (void)followingButtonTapped:(id)sender;
-- (void)didTapFollowingButton:(id)sender;
-- (void)showFollowingForUser:(id)user;
-- (void)_superPresentViewController:(UIViewController *)vc
-                           animated:(BOOL)animated
-                         completion:(id)completion;
-@end
+/* Wrapper de leitura da preferência ------------------- */
+static inline BOOL BHShouldBlockFollowing(void) {
+    return [SCIManager getPref:@"hide_following_list"];   // BOOL
+}
 
+/* ============ HOOK GLOBAL ============ */
 %group HideFollowing
-%hook IGProfileViewController
 
-- (void)followingButtonTapped:(id)sender {
-    if ([SCIManager getPref:@"hide_following_list"]) return;
-    %orig;
-}
-- (void)didTapFollowingButton:(id)sender {
-    if ([SCIManager getPref:@"hide_following_list"]) return;
-    %orig;
-}
-- (void)showFollowingForUser:(id)user {
-    if ([SCIManager getPref:@"hide_following_list"]) return;
-    %orig;
-}
+%hook UIViewController
 
-- (void)_superPresentViewController:(UIViewController *)vc
-                           animated:(BOOL)animated
-                         completion:(id)completion
+- (void)presentViewController:(UIViewController *)vc
+                     animated:(BOOL)animated
+                   completion:(void(^)(void))completion
 {
-    if ([SCIManager getPref:@"hide_following_list"] &&
-        ([vc isKindOfClass:NSClassFromString(@"IGUserListViewController")] ||
-         [vc isKindOfClass:NSClassFromString(@"IGFollowListViewController")] ||
-         [NSStringFromClass([vc class]) containsString:@"Follow"])) {
-        NSLog(@"[SCInsta] Bloqueado %@", NSStringFromClass([vc class]));
-        return;                     // não apresenta
-    }
-    %orig;
-}
-%end
-%end
+    if (BHShouldBlockFollowing()) {
+        NSString *cls = NSStringFromClass([vc class]);
 
-%ctor {
-    if ([SCIManager getPref:@"hide_following_list"]) {
-        %init(HideFollowing);
+        // Bloqueia QUALQUER controller cujo nome contenha
+        // “Follow” ou “UserList” (cobre praticamente todas
+        // as builds recentes do Instagram)
+        if ([cls containsString:@"Follow"] || [cls containsString:@"UserList"]) {
+            NSLog(@"[SCInsta] CANCEL presenting %@", cls);
+            return;        // ← simplesmente não apresenta
+        }
     }
+    %orig(vc, animated, completion);
+}
+
+%end   // UIViewController
+%end   // HideFollowing group
+
+/* ============ INICIALIZAÇÃO ============
+ * Não precisa verificar a pref aqui; hook sempre carregado
+ * e a lógica interna decide.
+ */
+%ctor {
+    %init(HideFollowing);
 }
