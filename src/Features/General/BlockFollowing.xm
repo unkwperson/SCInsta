@@ -1,34 +1,32 @@
 //  BlockFollowing.xm
-//  Bloqueia a lista “Seguindo” e loga eventos úteis
+//  Pref-key: hide_following_list
 //
-//  • Pref-key: hide_following_list (BOOL)
-//  • Logs:    [SCInsta-DBG][Tap] / [SCInsta-DBG][Present]
-//  • Build:   coloque em SCInsta.plist, compile em Debug.
+//  Logs: [SCInsta-DBG][Tap]  /  [SCInsta-DBG][Present]
 
 #import "../../InstagramHeaders.h"
 #import "../../Manager.h"
 #import <objc/runtime.h>
 #import <UIKit/UIKit.h>
 
-/* ========= Stubs só para o clang conhecer as classes ========= */
-@interface IGUserListViewController            : UIViewController @end
-@interface IGFollowListContainerController     : UIViewController @end
-@interface IGProfileSimpleAvatarStatsCell      : UIView              // botão stats
+/* ========= Stubs / categorias ========= *
+ * - IGUserListViewController e IGFollowListContainerController
+ *   não estão nos headers → criamos stubs que herdam de UIViewController.
+ * - IGProfileSimpleAvatarStatsCell já existe nos headers;
+ *   criamos só uma CATEGORIA para expor o seletor que hookaremos.
+ * ====================================== */
+
+@interface IGUserListViewController        : UIViewController @end
+@interface IGFollowListContainerController : UIViewController @end
+
+@interface IGProfileSimpleAvatarStatsCell (BHFollow)
 - (void)_followingButtonTapped:(id)sender;
 @end
-/* ============================================================= */
 
 /* ---------- Preferências ---------- */
-static inline BOOL BHShouldBlock(void) {       // toggle do usuário
-    return [SCIManager getPref:@"hide_following_list"];
-}
-static inline BOOL BHShouldLog(void)   {       // sempre logar (mude se quiser toggle)
-    return YES;
-}
+static inline BOOL BHShouldBlock(void) { return [SCIManager getPref:@"hide_following_list"]; }
+static inline BOOL BHShouldLog(void)   { return YES; }
 
-/* ========================================================== *
- * 1) Logger de Tap – mostra seletor exato que cada botão chama
- * ========================================================== */
+/* 1) Logger de Tap ------------------------------------------------------ */
 %hook UIControl
 - (void)sendAction:(SEL)action to:(id)target forEvent:(UIEvent *)event
 {
@@ -43,26 +41,20 @@ static inline BOOL BHShouldLog(void)   {       // sempre logar (mude se quiser t
     }
     %orig;
 }
-%end   // UIControl
+%end
 
-/* ========================================================== *
- * 2) Hook específico — bloqueia o botão “Seguindo” detectado
- * ========================================================== */
+/* 2) Hook do botão “Seguindo” ------------------------------------------ */
 %hook IGProfileSimpleAvatarStatsCell
 - (void)_followingButtonTapped:(id)sender {
     if (BHShouldBlock()) {
         NSLog(@"[SCInsta] Bloqueado _followingButtonTapped:");
-        return;                            // não deixa abrir nada
+        return;                           // não chama %orig
     }
     %orig;
 }
-%end   // IGProfileSimpleAvatarStatsCell
+%end
 
-/* ========================================================== *
- * 3) Intercepta apresentações de VCs
- *    • Loga sempre
- *    • Cancela se pref ON e nome contém Follow/UserList
- * ========================================================== */
+/* 3) Intercepta apresentações ------------------------------------------ */
 %hook UIViewController
 - (void)presentViewController:(UIViewController *)vc
                      animated:(BOOL)animated
@@ -82,11 +74,9 @@ static inline BOOL BHShouldLog(void)   {       // sempre logar (mude se quiser t
     }
     %orig(vc, animated, completion);
 }
-%end   // UIViewController
+%end
 
-/* ========================================================== *
- * 4) Rede de segurança: se escapar, fecha imediatamente
- * ========================================================== */
+/* 4) Rede de segurança -------------------------------------------------- */
 %hook IGUserListViewController
 - (void)viewDidAppear:(BOOL)animated {
     if (BHShouldBlock()) {
@@ -109,7 +99,5 @@ static inline BOOL BHShouldLog(void)   {       // sempre logar (mude se quiser t
 }
 %end
 
-/* ========================================================== *
- * 5) Inicialização
- * ========================================================== */
+/* 5) Inicialização ------------------------------------------------------ */
 %ctor { %init; }
