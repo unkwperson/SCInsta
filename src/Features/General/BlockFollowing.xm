@@ -1,26 +1,23 @@
 //  BlockFollowing.xm
-//  Pref-key: hide_following_list
+//  Bloqueia listas “Seguindo” e “Seguidores”
 //
-//  Logs: [SCInsta-DBG][Tap]  /  [SCInsta-DBG][Present]
+//  Pref-key: hide_following_list
+//  Logs   : [SCInsta-DBG][Tap] / [SCInsta-DBG][Present]
 
 #import "../../InstagramHeaders.h"
 #import "../../Manager.h"
 #import <objc/runtime.h>
 #import <UIKit/UIKit.h>
 
-/* ========= Stubs / categorias ========= *
- * - IGUserListViewController e IGFollowListContainerController
- *   não estão nos headers → criamos stubs que herdam de UIViewController.
- * - IGProfileSimpleAvatarStatsCell já existe nos headers;
- *   criamos só uma CATEGORIA para expor o seletor que hookaremos.
- * ====================================== */
-
+/* ========= Stubs / categorias ========= */
 @interface IGUserListViewController        : UIViewController @end
 @interface IGFollowListContainerController : UIViewController @end
 
 @interface IGProfileSimpleAvatarStatsCell (BHFollow)
 - (void)_followingButtonTapped:(id)sender;
+- (void)_followersButtonTapped:(id)sender;
 @end
+/* ====================================== */
 
 /* ---------- Preferências ---------- */
 static inline BOOL BHShouldBlock(void) { return [SCIManager getPref:@"hide_following_list"]; }
@@ -43,16 +40,26 @@ static inline BOOL BHShouldLog(void)   { return YES; }
 }
 %end
 
-/* 2) Hook do botão “Seguindo” ------------------------------------------ */
+/* 2) Hooks dos botões “Seguindo” e “Seguidores” ------------------------- */
 %hook IGProfileSimpleAvatarStatsCell
+
 - (void)_followingButtonTapped:(id)sender {
     if (BHShouldBlock()) {
         NSLog(@"[SCInsta] Bloqueado _followingButtonTapped:");
-        return;                           // não chama %orig
+        return;
     }
     %orig;
 }
-%end
+
+- (void)_followersButtonTapped:(id)sender {
+    if (BHShouldBlock()) {
+        NSLog(@"[SCInsta] Bloqueado _followersButtonTapped:");
+        return;
+    }
+    %orig;
+}
+
+%end   // IGProfileSimpleAvatarStatsCell
 
 /* 3) Intercepta apresentações ------------------------------------------ */
 %hook UIViewController
