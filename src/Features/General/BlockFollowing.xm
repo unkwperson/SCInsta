@@ -1,19 +1,21 @@
-//  BlockFollowing.xm
-//  • Bloqueia lista “Seguindo” (pref: hide_following_list)
-//  • Loga toques + apresentações p/ descobrir seletor/VC correto
+//  BlockFollowing.xm  (mesmo conteúdo anterior, mas corrigido)
 
+// 1) IMPORTS
 #import "../../InstagramHeaders.h"
 #import "../../Manager.h"
 #import <objc/runtime.h>
 #import <UIKit/UIKit.h>
 
+/* =====  FIX: Stub das classes só para o clang enxergar ===== */
+@interface IGUserListViewController : UIViewController @end
+@interface IGFollowListContainerController : UIViewController @end
+/* =========================================================== */
+
 /* ---------- Preferências ---------- */
 static inline BOOL BHShouldBlock(void)  { return [SCIManager getPref:@"hide_following_list"]; }
-static inline BOOL BHShouldLog(void)    { return YES; /* ou outra chave, se quiser toggle */ }
+static inline BOOL BHShouldLog(void)    { return YES; }
 
-/* ========================================================== *
- *  1) Logger de Toque – vê qual método o botão realmente chama
- * ========================================================== */
+/* 1) Logger de toques --------------------------------------------------- */
 %hook UIControl
 - (void)sendAction:(SEL)action to:(id)target forEvent:(UIEvent *)event
 {
@@ -30,11 +32,7 @@ static inline BOOL BHShouldLog(void)    { return YES; /* ou outra chave, se quis
 }
 %end   // UIControl
 
-/* ========================================================== *
- *  2) Intercepta qualquer apresentação de VC
- *     • Loga sempre
- *     • Cancela se pref ON  e  nome contém Follow/UserList
- * ========================================================== */
+/* 2) Intercepta apresentações ------------------------------------------- */
 %hook UIViewController
 - (void)presentViewController:(UIViewController *)vc
                      animated:(BOOL)animated
@@ -50,16 +48,13 @@ static inline BOOL BHShouldLog(void)    { return YES; /* ou outra chave, se quis
         ([cls containsString:@"Follow"] || [cls containsString:@"UserList"]))
     {
         NSLog(@"[SCInsta] CANCEL presenting %@", cls);
-        return;                       // ⬅︎ BLOQUEIA
+        return;
     }
     %orig(vc, animated, completion);
 }
 %end   // UIViewController
 
-/* ========================================================== *
- *  3) Hook de segurança: se por acaso o VC escapar e aparecer,
- *     damos dismiss imediatamente e logamos.
- * ========================================================== */
+/* 3) Hooks de segurança (caso escape) ----------------------------------- */
 %hook IGUserListViewController
 - (void)viewDidAppear:(BOOL)animated {
     if (BHShouldBlock()) {
@@ -82,7 +77,5 @@ static inline BOOL BHShouldLog(void)    { return YES; /* ou outra chave, se quis
 }
 %end
 
-/* ========================================================== *
- *  Inicialização (carrega sempre; preferência decide ação)
- * ========================================================== */
+/* 4) Inicialização ------------------------------------------------------ */
 %ctor { %init; }
